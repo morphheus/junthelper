@@ -39,32 +39,24 @@ USELESS_TOKENS = ['bold', 'color', 'margin', 'left', 'background', 'dash', 'true
 class PageScraper:
     """Basic class for all website-specific page scrapers"""
     scraped = False
-    def __init__(self, url):
+    def __init__(self, url, bodytext):
         if type(url) != type(str()):
             raise Exception('Url should be a string')
         self.url = url
-
-    def get_source(self):
-        """Gets the source for the scraper's URL"""
-        page = requests.get(self.url)
-        self.pagetree = html.fromstring(page.content)
-        self.body = self.pagetree.body
-        self.bodytext = list(self.body.itertext())
-
+        self.bodytext = bodytext
     def build_bodystring(self):
         """Builds a single string out of the bodytext"""
         self.bodystring = '\n'.join(self.bodytext)
-
     def get_scrape_date(self):
         """Returns the current date"""
         self.date_scrape = db.build_timestamp_id()
-
     def scrape(self):
         """Scrapes and partially processes the text foundi n the URL"""
-        self.get_source()
         self.get_scrape_date()
         self.build_bodystring()
         self.scraped = True
+
+
 
 class PSsmartrecruiters(PageScraper):
     """Page scraper specific to the SmartRecruiters website"""
@@ -114,9 +106,11 @@ class Jentry:
         """Jentry initializes itself from the input object"""
         if isinstance(obj, PageScraper):
             self.scored = False
+            self.viewed = False
             if not obj.scraped:
                 raise Exception('Input PageScraper has not been scraped yet')
             self.date = obj.date_scrape
+            self.url = obj.url
             self.bodystring = obj.bodystring
         elif isinstance(obj, dict):
             self.__dict__ = obj
@@ -151,23 +145,36 @@ class Jentry:
         unwanted_set = stopwords.words('english') + USELESS_TOKENS
         self.processed_tokens = " ".join([token for token in stemmed_tokens if token not in unwanted_set])
     def score(self):
-        """Scores the final tokens"""
+        """Scores the job entry"""
+        self.preprocess_bodystring()
         self.score, self.score_hits = scorer.score(self.processed_tokens)
-        
-
-    def write_db(self):
+    def write_db(self, conn=False):
         """Stores the Jentry in the database. Creates a new db entry if necessary"""
         existing_date = db.fetch_matching({'date':self.date})
         new_data = False
         if not existing_date:
             new_data = True
-        db.add(dict(self), new_data=new_data)
+        db.add(dict(self), new_data=new_data, conn=conn)
 
 def strip_html_tags(html):
     s = MLStripper()
     s.feed(html)
     return s.get_data()
 
+def scrape_job_posting(url):
+    """Scrapes a Jentry from the job posting url"""
+    # Clear redirects
+    r = requests.get(url, allow_redirects=True)
+    true_url = r.url
+    tree = html.fromstring(r.content)
+    bodytext = list(tree.body.itertext())
+    # Use appropriate scraper
+    # TODO: put website-specific switch
+    scraper_cls = PageScraper
+    scraper = scraper_cls(true_url, bodytext)
+    scraper.scrape()
+    return Jentry(scraper)
+    
 
 
 
