@@ -1,0 +1,59 @@
+# regex statements, score
+# All words between | will be enclised with a ()
+# | is the or operator. 
+
+python, 7
+data analysi|data scien|analysi data|analyz data|busi analyst|data analyst|data engin, 10
+linux|linuxunix|unix, 5
+latex, 2
+statist, 5
+mathemat, 5
+panda, 0
+machin learn, 3 
+objectori|object orient, 3
+bash|zsh shell|sh, 3
+big data, 2
+comput engin, 1
+engin, 2
+colleg|recent|new graduat, 6 
+graduat, 2
+french, 2
+english, 2
+englishfrench, 4
+junior, 5
+master degre|m sc|msc|meng|m eng, 4
+sql|mysql|sqlite|sqlmysql, 3
+git, 3
+kaggl, 4
+
+
+data entry, -5
+window, -1
+web applic|web servic|web architectur, -5
+html, -5
+rubi, 0
+css, -5
+asp, -2
+javascript, -2
+jqueri, -3
+java, 0
+excel, -5
+phd, -1
+spark, -1
+impala, -1
+hive, -1
+php, -3
+rest api, -2
+senior, -7
+spanish, -4
+german, -4
+dutch, -4
+
+# I don't have three years of experience in anything
+3 year, -0.5
+4 year, -1
+5 year, -2
+6 year, -4
+7 year, -8
+8 year, -16
+
