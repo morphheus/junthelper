@@ -56,8 +56,6 @@ class PageScraper:
         self.build_bodystring()
         self.scraped = True
 
-
-
 class PSsmartrecruiters(PageScraper):
     """Page scraper specific to the SmartRecruiters website"""
     def build_bodystring(self):
@@ -121,7 +119,7 @@ class Jentry:
         for key, value in self.__dict__.items():
             if not callable(value) and not key.startswith('__'):
                 yield key, value
-    def pre_process_bodystring(self):
+    def preprocess_bodystring(self):
         """Processes the bodystring to recover the relevant information in it"""
         # Remove html tags
         text = strip_html_tags(self.bodystring)
@@ -144,13 +142,13 @@ class Jentry:
         stemmed_tokens = [stemmer.stem(token) for token in english_tokens]
         unwanted_set = stopwords.words('english') + USELESS_TOKENS
         self.processed_tokens = " ".join([token for token in stemmed_tokens if token not in unwanted_set])
-    def score(self):
+    def compute_score(self):
         """Scores the job entry"""
         self.preprocess_bodystring()
         self.score, self.score_hits = scorer.score(self.processed_tokens)
     def write_db(self, conn=False):
         """Stores the Jentry in the database. Creates a new db entry if necessary"""
-        existing_date = db.fetch_matching({'date':self.date})
+        existing_date = db.fetch_matching({'date':[self.date]})
         new_data = False
         if not existing_date:
             new_data = True

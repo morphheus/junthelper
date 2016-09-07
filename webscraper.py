@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Single webpage scraper"""
+"""Search engine scraper"""
 
 import scrapy
 import logging
@@ -60,7 +60,7 @@ class SpiderIndeedCa(scrapy.Spider):
             url = response.urljoin(next_link)
             yield scrapy.Request(url)# callback=self.parse_dir_contents)
     def quit(self):
-        """Executed at the end of the crawl"""
+        """Executed at the end of the crawl. Add all non-dupplicates to db"""
         # Add all Jentry to db
         conn = juntdb.connect()
         true_urls =list(zip(* juntdb.fetch_last_n(99999, collist=['url'], conn=conn)))[1]
@@ -77,7 +77,7 @@ class SpiderIndeedCa(scrapy.Spider):
         conn.close()
 
 
-def crawl(SpiderCls, *args, **kwargs):
+def crawl_one(SpiderCls, *args, **kwargs):
     """Simple wrapper to crawl the desired website"""
     crawler = CrawlerProcess({
        'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)',
@@ -86,11 +86,29 @@ def crawl(SpiderCls, *args, **kwargs):
     crawler.crawl(SpiderCls, *args, **kwargs)
     crawler.start() # the script will block here until the crawling is finished
 
-
+def crawl_many(input_list):
+    """Simple wrapper to crawl the desired website"""
+    crawler = CrawlerProcess({
+       'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)',
+       'LOG_LEVEL':'WARNING'
+    })
+    for spidercls, args, kwargs in zip(*input_list):
+        print(spidercls)
+        print(args)
+        print(kargs)
+        crawler.crawl(spidercls, *args, **kwargs)
+    crawler.start() # the script will block here until the crawling is finished
 
 if __name__ == '__main__':
     pass
-    crawl(SpiderIndeedCa, 'data python analyst panda')
+    #crawl(SpiderIndeedCa, 'data python analyst panda')
+
+    input_list = [
+            (SpiderIndeedCa, ('data python analyst panda'), {})
+            ]
+    crawl_many(input_list)
+
+
 
 
 

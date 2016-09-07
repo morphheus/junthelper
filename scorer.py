@@ -3,6 +3,7 @@
 
 import csv
 import re
+import juntdb
 
 
 # Load the scorefile once per module import. Converts it into a list of regex to be used later
@@ -36,5 +37,7 @@ def score(text, final_score=0):
             hit_list.append((regex_string, score))
 
     return final_score, hit_list
+
+
 
 

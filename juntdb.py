@@ -13,6 +13,8 @@ import types
 DEF_TABLE = 'joblist'
 DEF_DB = 'juntdb.sqlite'
 DEF_ASSOC_TABLE = 'type_assoc'
+DEF_COL_NAMES = ['url', 'bodystring', 'tokens', 'score', 'viewed', 'dead']
+DEF_COL_TYPES = ['TEXT', 'TEXT', 'TEXT', 'REAL', 'BOOL', 'BOOL']
 
 __PRIMARY = 'date'
 __PRIMARY_TYPE = 'INTEGER'
@@ -127,8 +129,6 @@ def init(dbase_file=DEF_DB, table_name=DEF_TABLE):
     c.execute('CREATE TABLE {tn} ({fn} {ft} PRIMARY KEY)'\
               .format(tn=table_name, fn=field_name, ft=field_type))
 
-
-
     type_assoc = {\
                   'int':'INTEGER',\
                   'bool':'BOOL',\
@@ -148,15 +148,37 @@ def init(dbase_file=DEF_DB, table_name=DEF_TABLE):
     for key, val in type_assoc.items():
         c.execute("INSERT INTO {} (ptype, stype)VALUES(?,?)".\
                   format(DEF_ASSOC_TABLE), [key, val])
-
-    
-    
     conn.commit()
+
+    add_cols(DEF_COL_NAMES, DEF_COL_TYPES, tn=table_name, dbase_file=dbase_file)
     conn.close()
 def get_type_assoc(conn, tn_assoc=DEF_ASSOC_TABLE):
     c = conn.cursor()
     cursor = c.execute('select * from ' + tn_assoc)
     return dict(cursor.fetchall())
+def add_cols(col_names,col_types, tn=DEF_TABLE, dbase_file=DEF_DB, conn=False):
+    """Adds columns to the database"""
+    close_conn = False
+    if conn == False: 
+        conn = connect(dbase_file)
+        closeconn = True
+    
+    if len(col_names) != len(col_types):
+        raise Exception('Different length of columns names / types')
+    if len(col_names) == 1:
+        names = [col_names]
+        types = [col_types]
+    else:
+        names = col_names
+        types = col_types
+        
+    c = conn.cursor()
+    for x, y in zip(col_names, col_types):
+        c.execute("ALTER TABLE {tn} ADD COLUMN '{cn}' {ct}".format(tn=tn, cn=x, ct=y))
+    conn.commit()
+
+    if close_conn:
+        conn.close()
 
 def add(data, tn=DEF_TABLE, dbase_file=DEF_DB, conn=False, new_data=True):
     """Adds the data dictionary as one row. If new columns are added, older entries will be appropriately initiated"""
@@ -291,31 +313,6 @@ def vacuum(tn=DEF_TABLE, dbase_file=DEF_DB, conn=False):
 #--------------------
 
 #------------------------
-def fetch_jentries(input_dates, tn=DEF_TABLE, dbase_file=DEF_DB, conn=False):
-    """Fetches a single, whole entry in table, and converts it to a Jentry
-    Input
-    dates: date or list of dates of the entries to grab from the db
-    """
-    # This allows is to passs a connection instead of always opening a new one.
-    close_conn = False
-    if conn == False: 
-        conn = connect(dbase_file)
-        closeconn = True
-
-    if isinstance(dates, int):
-        dates = [input_dates]
-    elif isinstance(dates, (list,tuple)):
-        dates = input_dates
-    else:
-        raise ValueError("Expected an int or a list of ints")
-
-    string = "SELECT "+colstring+" FROM "+tn+" WHERE date BETWEEN "+str(lo)+" AND "+str(hi)
-    
-    
-    if close_conn:
-        conn.close()
-
-    return output
 def fetch_matching(entry_dict, collist=None, tn=DEF_TABLE, dbase_file=DEF_DB, conn=False, get_data=True):
     """Fetches the rows that matches the entry dict.
     If get_data = False, then it only outputs the dates (not the full row): """
@@ -458,4 +455,4 @@ def fetch_dates(dates, tn=DEF_TABLE, dbase_file=DEF_DB, conn=False):
     return fetch_range(sorted(dates), ['date'], tn=tn, dbase_file=dbase_file, conn=conn)
 
 if __name__ == '__main__':
-    print('hallo')
+    init()
