@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-"""Various routines to control junthelper"""
+"""Various routines to interface with junthelper"""
 
 import juntdb
 import viewer
 import webscraper as webs
+import webbrowser
+import logging
 from pagescraper import Jentry
 
 
@@ -11,6 +13,7 @@ from pagescraper import Jentry
 
 
 def exec_crawl(query, max_age=15):
+    """Executes the desired webcrawling"""
     input_list = [
             (webs.SpiderIndeedCa, (query,), {'max_age':max_age}),
             (webs.SpiderCareerjetCa, (query,), {'max_age':max_age})
@@ -67,6 +70,7 @@ def score_db(conn=False):
     jentries = row2jentry(c.fetchall())
     if not jentries:
         print('No entries to score')
+    print('Scoring ' str(len(jentries)) ' + job postings')
 
     for jentry in jentries:
         jentry.compute_score()
@@ -101,7 +105,12 @@ def get_sensible_jentries(min_score, sorting='score', disp=True):
 
 def open_in_browser(jentries):
     """Opens the jentries in browser"""
-    pass
+    conn = juntdb.connect() 
+    for jentry in jentries:
+        webbbrowser.open(jentry.url)
+        #jentry.viewed = True
+        #jentry.write_db()
+    conn.close()
 
 
 if __name__ == '__main__':

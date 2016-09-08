@@ -10,6 +10,7 @@ import copy
 import string
 import re
 import logging
+import sys
 
 # Sklearn deprecation warnings won't shut up
 import imp
@@ -46,7 +47,6 @@ class PageScraper:
             raise Exception('Url should be a string')
         self.url = url
         self.tree = tree
-
     def build_bodystring(self):
         """Builds a single string out of the bodytext."""
         # process_tree should ideally be redefined by subclasses. If it fails, revert to default
@@ -57,6 +57,9 @@ class PageScraper:
                 raise
             logging.error('Unexpected error in ' + self.__class__.__name__ + ' for ' + self.url)
             self.def_process_tree()
+    def process_tree(self):
+        """To be overwritten by a subclass"""
+        self.def_process_tree()
     def def_process_tree(self):
         """Builds a single string out of the bodytext"""
         bodytext = list(self.tree.body.itertext())
@@ -98,16 +101,17 @@ class MLStripper(HTMLParser):
 
 class Jentry:
     """Job entry object"""
-    def __init__(self, obj):
+    def __init__(self, obj, loc=None):
         """Jentry initializes itself from the input object"""
         if isinstance(obj, PageScraper):
-            self.scored = False
             self.viewed = False
+            self.dead = False
             if not obj.scraped:
                 raise Exception('Input PageScraper has not been scraped yet')
             self.date = obj.date_scrape
             self.url = obj.url
             self.bodystring = obj.bodystring
+            self.loc = loc
         elif isinstance(obj, dict):
             self.__dict__ = obj
         else:
@@ -157,7 +161,7 @@ def strip_html_tags(html):
     s.feed(html)
     return s.get_data()
 
-def scrape_job_posting(url):
+def scrape_job_posting(url, **kwargs):
     """Scrapes a Jentry from the job posting url"""
     # Clear redirects
     r = requests.get(url, allow_redirects=True)
@@ -174,7 +178,7 @@ def scrape_job_posting(url):
         scraper_cls = PageScraper
     scraper = scraper_cls(true_url, tree)
     scraper.scrape()
-    return Jentry(scraper)
+    return Jentry(scraper, **kwargs)
     
 
 
