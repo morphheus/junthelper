@@ -3,12 +3,19 @@
 
 import juntdb
 import viewer
+import webscraper as webs
 from pagescraper import Jentry
 
 
 
 
 
+def exec_crawl(query, max_age=15):
+    input_list = [
+            (webs.SpiderIndeedCa, (query,), {'max_age':max_age}),
+            (webs.SpiderCareerjetCa, (query,), {'max_age':max_age})
+            ]
+    webs.crawl_many(input_list)
 
 def fetch_scored_jentries(min_score, filter_viewed=True, filter_dead=True, conn=False):
     """Fetches the high scoring entries
@@ -47,7 +54,6 @@ def sort_by_attribute(lst, attribute):
     else:
         return lst
 
-
 def score_db(conn=False):
     """Processes all unscored entries in db"""
     close_conn = False
@@ -73,21 +79,29 @@ def row2jentry(data):
     """Converts the output of the juntdb into Jentry objects"""
     return [Jentry(dict(zip(['date'] + juntdb.DEF_COL_NAMES, x))) for x in data]
 
-def print_sensible_jentries(min_score, sorting='score'):
+def get_sensible_jentries(min_score, sorting='score', disp=True):
     """Output to terminal the sensible entries that the user should apply to, according to min_score"""
     jentries = fetch_scored_jentries(min_score)
     sorted_jentries = sort_by_attribute(jentries, sorting)
     sorted_jentries.reverse()
 
+    dprint = lambda x : print(x) if disp else None
+
     max_score_len = 10
     tmp = 'score'
     remaining_spaces = lambda x: ' '*(max_score_len + 2 - len(x))
-    print(tmp + remaining_spaces(tmp) + 'URL')
+    dprint(tmp + remaining_spaces(tmp) + 'URL')
     for jentry in sorted_jentries:
         str_score = str(jentry.score)
         if len(str_score) > max_score_len:
             str_score = str_score[:max_score_len-1]
-        print( str_score + remaining_spaces(str_score) + jentry.url)
+        Dprint( str_score + remaining_spaces(str_score) + jentry.url)
+
+    return sorted_jentries
+
+def open_in_browser(jentries):
+    """Opens the jentries in browser"""
+    pass
 
 
 if __name__ == '__main__':

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
-import juntdb
+
+import lib
+
+lib.exec_crawl('data python', max_age=3)
 
 
 
@@ -8,6 +11,7 @@ import juntdb
 
 
 
-juntdb.init()
+
+
 
 

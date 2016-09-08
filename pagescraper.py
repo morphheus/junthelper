@@ -3,11 +3,13 @@
 
 from lxml import html
 from html.parser import HTMLParser
+from urllib.parse import urlparse
 import collections
 import requests
 import copy
 import string
 import re
+import logging
 
 # Sklearn deprecation warnings won't shut up
 import imp
@@ -39,14 +41,26 @@ USELESS_TOKENS = ['bold', 'color', 'margin', 'left', 'background', 'dash', 'true
 class PageScraper:
     """Basic class for all website-specific page scrapers"""
     scraped = False
-    def __init__(self, url, bodytext):
+    def __init__(self, url, tree):
         if type(url) != type(str()):
             raise Exception('Url should be a string')
         self.url = url
-        self.bodytext = bodytext
+        self.tree = tree
+
     def build_bodystring(self):
+        """Builds a single string out of the bodytext."""
+        # process_tree should ideally be redefined by subclasses. If it fails, revert to default
+        try:
+            self.process_tree()
+        except Exception:
+            if self.__class__.__name__ == 'PageScraper':
+                raise
+            logging.error('Unexpected error in ' + self.__class__.__name__ + ' for ' + self.url)
+            self.def_process_tree()
+    def def_process_tree(self):
         """Builds a single string out of the bodytext"""
-        self.bodystring = '\n'.join(self.bodytext)
+        bodytext = list(self.tree.body.itertext())
+        self.bodystring = '\n'.join(bodytext)
     def get_scrape_date(self):
         """Returns the current date"""
         self.date_scrape = db.build_timestamp_id()
@@ -58,35 +72,19 @@ class PageScraper:
 
 class PSsmartrecruiters(PageScraper):
     """Page scraper specific to the SmartRecruiters website"""
-    def build_bodystring(self):
-        self.bodystring = '\n'.join(self.bodytext[:-12])
-
-class PSindeed(PageScraper):
-    """Page scraper for the Indeed website"""
-    multiscrape_maxcount = 10
-    def build_bodystring(self):
+    def process_tree(self):
         """Builds a single string out of the bodytext"""
-        self.bodystring = '\n'.join(self.bodytext[96:-148])
-    def get_source(self):
-        """Scrapes multiple times, as Indeed.com is known to have variable output"""
-        sourcelist = []
-        bodytext_lengths = []
-        # get the source many times
-        for k in range(self.multiscrape_maxcount):
-            super(PSindeed, self).get_source()
-            bodytext_lengths.append(len(self.bodytext))
-            sourcelist.append(copy.copy(self.pagetree))
+        bodytext = self.tree.xpath('//h1[@class="job-title"]/text()')
+        bodytext += self.tree.xpath('//div[@class="job-sections"]//text()')
+        self.bodystring = '\n'.join(bodytext)
 
-        # Pick the outputs with the most common length ob bodytext
-        b = collections.Counter(bodytext_lengths)
-        best_len = b.most_common()[0][0]
-        best_source_idx = bodytext_lengths.index(best_len)
-        best_source = sourcelist[best_source_idx]
-        del sourcelist
-
-        self.pagetree = best_source
-        self.body = self.pagetree.body
-        self.bodytext = list(self.body.itertext())
+class PSindeedCa(PageScraper):
+    """Page scraper for the Indeed website"""
+    def process_tree(self):
+        """Processes the tree to extract the job posting string"""
+        bodytext = self.tree.xpath('//b[@class="jobtitle"]//text()')
+        bodytext = self.tree.xpath('//span[@id="job_summary"]//text()')
+        self.bodystring = '\n'.join(bodytext)
 
 class MLStripper(HTMLParser):
     def __init__(self):
@@ -165,11 +163,16 @@ def scrape_job_posting(url):
     r = requests.get(url, allow_redirects=True)
     true_url = r.url
     tree = html.fromstring(r.content)
-    bodytext = list(tree.body.itertext())
     # Use appropriate scraper
     # TODO: put website-specific switch
-    scraper_cls = PageScraper
-    scraper = scraper_cls(true_url, bodytext)
+    domain = urlparse(true_url).hostname
+    if domain in ['www.indeed.ca', 'www.indeed.com']:
+        scraper_cls = PSindeedCa
+    elif domain in ['www.smartrecruiters.ca', 'www.smartrecruiters.com']:
+        scraper_cls = PSsmartrecruiters
+    else:
+        scraper_cls = PageScraper
+    scraper = scraper_cls(true_url, tree)
     scraper.scrape()
     return Jentry(scraper)
     
@@ -180,18 +183,11 @@ if __name__ == '__main__':
 
     url = [
     'http://www.indeed.ca/cmp/Mate1-Inc/jobs/Devop-Engineer-a156a3304e6193bc?sjdu=vQIlM60yK_PwYat7ToXhk-E4ENgV3fnJw6x45fMqWb1lojM6yJ0NlafcC4cBp_yEgc5kHZrkOD2NvIrrHdP2HgNJCpsGTgvMW68enfhuWXU',
-    'http://www.indeed.ca/cmp/SPORTLOGiQ/jobs/Senior-Back-End-Developer-ada2b84d0a7a860b?sjdu=vQIlM60yK_PwYat7ToXhk1EQcCGKPDd26qp_pQ6XvqM0lUnG7VyC2oe4B-SBpLeg7xoFLmPGxIPXcns4tOAb8-ciw3T5Q1hDbUXoLn1XxwY',
-    'http://www.vigilantglobal.com/en/careers/junior-software-developer',
-    'http://sunlifefinancial.taleo.net/careersection/global/jobdetail.ftl?job=508864&src=JB-11348',
     'https://www.smartrecruiters.com/Ludia/95985523-intermediate-data-analyst?idpartenaire=136'
 ]
     #scraper = PSindeed(url)
-    scraper = PageScraper(url[4])
-    #scraper = PSsmartrecruiters(url)
-    scraper.scrape()
-    entry = Jentry(scraper)
-    entry.pre_process_bodystring()
-    entry.score()
+    entry = scrape_job_posting(url[1])
+    entry.compute_score()
     print(entry.score)
     print(entry.score_hits)
     print(entry.processed_tokens)

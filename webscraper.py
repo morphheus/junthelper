@@ -7,13 +7,14 @@ from scrapy.utils.log import configure_logging
 from scrapy.crawler import CrawlerProcess
 from scrapy.settings import Settings
 from pydispatch import dispatcher
+from datetime import datetime
 
 import juntdb
 from pagescraper import scrape_job_posting
 
 logger = logging.getLogger() # New local logger
 handler = logging.StreamHandler()
-handler.setLevel(21)
+handler.setLevel(20)
 formatter = logging.Formatter('[%(asctime)s %(name)s][%(levelname)-8s] %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
@@ -27,8 +28,7 @@ class SpiderIndeedCa(scrapy.Spider):
     search_url_prefix = '/jobs?'
     get_request = ['as_and=', '&as_phr=', '&as_any=', '&as_not=', '&as_ttl=', '&as_cmp=', '&jt=all', '&st=', '&salary=', '&radius=50',  '&l=','&fromage=', '&limit=', '&sort=date', '&psf=advsrch' 
             ]
-
-    def __init__(self, match_all, match_any='', location='Montr%C3%A9al%2C+QC', views_per_page=20 ,max_age=15):
+    def __init__(self, match_all, match_any='', location='Montréal%2C+QC', views_per_page=20 ,max_age=15):
         """
         match_all:  search for all these words in a single page
         match_any:  search for any of these words in a single pasge
@@ -40,30 +40,44 @@ class SpiderIndeedCa(scrapy.Spider):
         query += self.get_request[11] + str(max_age)
         query += self.get_request[12] + str(views_per_page)
         query += ''.join(self.get_request[-2:])
+        self.location = location
+        self.name = 'IndeedCa' + location
         self.start_urls = [query]
-        self.search_page_index = 1
+        self.search_page_index = 0
         self.jentries = []
         dispatcher.connect(self.quit, scrapy.signals.spider_closed)
-        logger.log(21, 'Scraping ' + self.name + ' ' + location)
+        logger.log(21, 'Scraping ' + self.name)
     def parse(self, response):
         """Parses the responses"""
         # Grab all the job posting urls
         for sel in response.xpath('//h2[@class="jobtitle"]'):
             posting_url = self.main_url_prefix + sel.xpath('a/@href').extract()[0]
-            self.jentries.append(scrape_job_posting(posting_url))
+            job_location = sel.xpath('..//span[@itemprop="addressLocality"]/text()').extract()[0]
+            self.jentries.append(scrape_job_posting(posting_url, loc=job_location))
 
         # Goto next page up to the end of the pagination div
-        pagination_hrefs = response.xpath('//div[@class="pagination"]').xpath('a/@href').extract()
-        if self.search_page_index < len(pagination_hrefs):
-            next_link = pagination_hrefs[self.search_page_index]
-            self.search_page_index += 1
-            url = response.urljoin(next_link)
-            yield scrapy.Request(url)# callback=self.parse_dir_contents)
+        try:
+            rightmost_a = response.xpath('//div[@class="pagination"]/a')[-1]
+            a_text = rightmost_a.xpath('span//text()').extract()[0]
+            url = response.urljoin(rightmost_a.xpath('@href').extract()[0])
+            if a_text == 'Next\xa0»':
+                self.search_page_index += 1
+                logging.log(21, self.name + 'Processing page ' + str(self.search_page_index+1))
+                yield scrapy.Request(url)
+        except IndexError:
+            pass
     def quit(self):
         """Executed at the end of the crawl. Add all non-dupplicates to db"""
-        # Add all Jentry to db
+        # Add all Jentr to db
+        logging.log(21, self.name + ' finished after ' + str(self.search_page_index) + 'pages')
+
         conn = juntdb.connect()
-        true_urls =list(zip(* juntdb.fetch_last_n(99999, collist=['url'], conn=conn)))[1]
+        try:
+            true_urls =list(list(zip(* juntdb.fetch_last_n(99999, collist=['url'], conn=conn)))[1])
+        except IndexError:
+            logger.info('Detected empty database; assuming there are no pre-existing URLS')
+            true_urls
+
         dupp_count = 0
         for jentry in self.jentries:
             if jentry.url in true_urls:
@@ -76,6 +90,59 @@ class SpiderIndeedCa(scrapy.Spider):
             logging.log(21, str(dupp_count) + ' dupplicates')
         conn.close()
 
+class SpiderCareerjetCa(SpiderIndeedCa):
+    """Web search aggregator for careerjet.ca"""
+
+    main_url_prefix = 'http://www.careerjet.ca'
+    search_url_prefix = '/wsearch/jobs?'
+    get_request = ['s=',  '&l=', '&sort=date']
+
+    def __init__(self, match_all, match_any='', location='Montreal%2C+QC', max_age=3):
+        """
+        match_all:  search for all these words in a single page
+        match_any:  search for any of these words in a single pasge
+        max_page:   integer, maximum time (in days) the job posting was posted
+        """
+        query = self.main_url_prefix + self.search_url_prefix + self.get_request[0] + match_all.replace(' ', '+')
+        query += self.get_request[1] + location
+        query += ''.join(self.get_request[2:])
+        self.name = 'CareerjetCa' + location
+        self.start_urls = [query]
+        self.jentries = []
+        self.max_age = max_age
+        self.search_page_index = 0
+        dispatcher.connect(self.quit, scrapy.signals.spider_closed)
+        logger.log(21, 'Scraping ' + self.name)
+    def parse(self, response):
+        """Parses the responses"""
+        # Grab all the job posting urls
+        for sel in response.xpath('//div[@class="job"]'):
+            # Find if job too old
+            full_date = sel.xpath('p//span[@class="date_compact"]/script/text()').extract()[0][19:-3]
+            if date_age(full_date) > self.max_age:
+                reached_max_age = True
+                break
+
+            posting_url = response.urljoin(sel.xpath('h2/a/@href').extract()[0])
+            job_location = sel.xpath('p//a[@class="locations_compact"]/text()').extract()[0]
+            try:
+                self.jentries.append(scrape_job_posting(posting_url, loc=job_location))
+            except Exception:
+                logger.error("Unexpected error with website:" + posting_url)
+                logger.error(sys.exc_info()[0])
+                
+
+        # Goto next page up to the end of the pagination div
+        try:
+            rightmost_a = response.xpath('//p[@class="browse"]/a')[-1]
+            a_text = rightmost_a.xpath('text()').extract()[0]
+            url = response.urljoin(rightmost_a.xpath('@href').extract()[0])
+            if a_text == ' >>' and not reached_max_age:
+                self.search_page_index += 1
+                logging.log(21, self.name + 'Processing page ' + str(self.search_page_index+1))
+                yield scrapy.Request(url)
+        except IndexError:
+            pass
 
 def crawl_one(SpiderCls, *args, **kwargs):
     """Simple wrapper to crawl the desired website"""
@@ -92,19 +159,33 @@ def crawl_many(input_list):
        'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)',
        'LOG_LEVEL':'WARNING'
     })
-    for spidercls, args, kwargs in zip(*input_list):
-        print(spidercls)
-        print(args)
-        print(kargs)
+    for spidercls, args, kwargs in input_list:
         crawler.crawl(spidercls, *args, **kwargs)
     crawler.start() # the script will block here until the crawling is finished
+
+def date_age(datestr):
+    """Input: date string
+    Output: age with respect to current date. Max 1 year diff"""
+    year = datetime.today().year
+    yday_today =  datetime.today().timetuple().tm_yday
+    yday_input =  datetime.strptime(str(year) + ' ' + datestr, '%Y %B %d').timetuple().tm_yday
+    diff = yday_today -  yday_input
+    if diff < 0:
+        diff += 365
+        # TODO: leap years. If the span between input & today contains feb
+        # in a leap year, then add 1
+    return diff
+
+    
 
 if __name__ == '__main__':
     pass
     #crawl(SpiderIndeedCa, 'data python analyst panda')
 
+
     input_list = [
-            (SpiderIndeedCa, ('data python analyst panda'), {})
+            #(SpiderIndeedCa, ('data python analyst panda',), {})
+            (SpiderCareerjetCa, ('data python',), {})
             ]
     crawl_many(input_list)
 

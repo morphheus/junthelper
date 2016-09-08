@@ -13,8 +13,8 @@ import types
 DEF_TABLE = 'joblist'
 DEF_DB = 'juntdb.sqlite'
 DEF_ASSOC_TABLE = 'type_assoc'
-DEF_COL_NAMES = ['url', 'bodystring', 'tokens', 'score', 'viewed', 'dead']
-DEF_COL_TYPES = ['TEXT', 'TEXT', 'TEXT', 'REAL', 'BOOL', 'BOOL']
+DEF_COL_NAMES = ['url',  'loc',  'bodystring', 'tokens', 'score', 'viewed', 'dead']
+DEF_COL_TYPES = ['TEXT', 'TEXT', 'TEXT',       'TEXT',   'REAL',  'BOOL',  'BOOL']
 
 __PRIMARY = 'date'
 __PRIMARY_TYPE = 'INTEGER'
@@ -99,7 +99,8 @@ def connect(dbase_file=DEF_DB):
     sqlite3.register_converter("FLOAT64", convert_float64)
     sqlite3.register_converter("FUNCTION", convert_function)
 
-    conn = sqlite3.connect(dbase_file, detect_types=sqlite3.PARSE_DECLTYPES)
+
+    conn = sqlite3.connect(dbase_file, detect_types=sqlite3.PARSE_DECLTYPES, timeout=30.0)
     return conn
 def clear_table(tn=DEF_TABLE, dbase_file=DEF_DB, conn=False):
     close_conn = False
