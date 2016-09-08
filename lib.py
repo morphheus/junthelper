@@ -50,8 +50,7 @@ def sort_by_attribute(lst, attribute):
     """Sort the list of namedtuples by the specified attibute
     attribute: string of the sorting attribute"""
     if len(lst) > 1:
-        sorting_list = [(x.__dict__[attribute], x) for x in lst]
-        sorting_list.sort()
+        sorting_list = sorted([(x.__dict__[attribute], x) for x in lst], key=lambda x: x[0])
         _, sorted_namedtuples = zip(*sorting_list)
         return list(sorted_namedtuples)
     else:
@@ -70,7 +69,8 @@ def score_db(conn=False):
     jentries = row2jentry(c.fetchall())
     if not jentries:
         print('No entries to score')
-    print('Scoring ' str(len(jentries)) ' + job postings')
+    else:
+        print('Scoring ' + str(len(jentries))  +' job postings')
 
     for jentry in jentries:
         jentry.compute_score()
@@ -99,17 +99,18 @@ def get_sensible_jentries(min_score, sorting='score', disp=True):
         str_score = str(jentry.score)
         if len(str_score) > max_score_len:
             str_score = str_score[:max_score_len-1]
-        Dprint( str_score + remaining_spaces(str_score) + jentry.url)
+        dprint( str_score + remaining_spaces(str_score) + jentry.url)
 
     return sorted_jentries
 
-def open_in_browser(jentries):
+def open_in_browser(jentries, mark_as_viewed=True):
     """Opens the jentries in browser"""
     conn = juntdb.connect() 
     for jentry in jentries:
-        webbbrowser.open(jentry.url)
-        #jentry.viewed = True
-        #jentry.write_db()
+        webbrowser.open(jentry.url)
+        if mark_as_viewed:
+            jentry.viewed = True
+            jentry.write_db()
     conn.close()
 
 
