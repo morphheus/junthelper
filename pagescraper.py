@@ -42,11 +42,13 @@ USELESS_TOKENS = ['bold', 'color', 'margin', 'left', 'background', 'dash', 'true
 class PageScraper:
     """Basic class for all website-specific page scrapers"""
     scraped = False
+
     def __init__(self, url, tree):
         if type(url) != type(str()):
             raise Exception('Url should be a string')
         self.url = url
         self.tree = tree
+
     def build_bodystring(self):
         """Builds a single string out of the bodytext."""
         # process_tree should ideally be redefined by subclasses. If it fails, revert to default
@@ -57,18 +59,22 @@ class PageScraper:
                 raise
             logging.error('Unexpected error in ' + self.__class__.__name__ + ' for ' + self.url)
             self.def_process_tree()
+
     def process_tree(self):
         """To be overwritten by a subclass"""
         self.def_process_tree()
+    
     def def_process_tree(self):
-        """Builds a single string out of the bodytext"""
+        """Blindly grabs all normal text in the body of the html source"""
         bodytext = list(self.tree.body.itertext())
         self.bodystring = '\n'.join(bodytext)
+
     def get_scrape_date(self):
         """Returns the current date"""
         self.date_scrape = db.build_timestamp_id()
+
     def scrape(self):
-        """Scrapes and partially processes the text foundi n the URL"""
+        """Build a string of the job posting"""
         self.get_scrape_date()
         self.build_bodystring()
         self.scraped = True
@@ -90,12 +96,15 @@ class PSindeedCa(PageScraper):
         self.bodystring = '\n'.join(bodytext)
 
 class MLStripper(HTMLParser):
+    """Container class for the html parser"""
     def __init__(self):
         super().__init__()
         self.reset()
         self.fed = []
+
     def handle_data(self, d):
         self.fed.append(d)
+
     def get_data(self):
         return ''.join(self.fed)
 
@@ -116,13 +125,15 @@ class Jentry:
             self.__dict__ = obj
         else:
             raise Exception('Unknown input class')
+
     def __iter__(self):
         """Iterates over all the non-callable, non-hidden attributes"""
         for key, value in self.__dict__.items():
             if not callable(value) and not key.startswith('__'):
                 yield key, value
+
     def preprocess_bodystring(self):
-        """Processes the bodystring to recover the relevant information in it"""
+        """Processes the job posting string to recover the relevant information in it"""
         # Remove html tags
         text = strip_html_tags(self.bodystring)
         
@@ -144,10 +155,12 @@ class Jentry:
         stemmed_tokens = [stemmer.stem(token) for token in english_tokens]
         unwanted_set = stopwords.words('english') + USELESS_TOKENS
         self.processed_tokens = " ".join([token for token in stemmed_tokens if token not in unwanted_set])
+
     def compute_score(self):
-        """Scores the job entry"""
+        """Scores the job entry as defined in scorefile.csv"""
         self.preprocess_bodystring()
         self.score, self.score_hits = scorer.score(self.processed_tokens)
+
     def write_db(self, conn=False):
         """Stores the Jentry in the database. Creates a new db entry if necessary"""
         existing_date = db.fetch_matching({'date':[self.date]})
@@ -157,18 +170,18 @@ class Jentry:
         db.add(dict(self), new_data=new_data, conn=conn)
 
 def strip_html_tags(html):
+    """Strips the html tags from the input"""
     s = MLStripper()
     s.feed(html)
     return s.get_data()
 
 def scrape_job_posting(url, **kwargs):
     """Scrapes a Jentry from the job posting url"""
-    # Clear redirects
     r = requests.get(url, allow_redirects=True)
     true_url = r.url
     tree = html.fromstring(r.content)
-    # Use appropriate scraper
-    # TODO: put website-specific switch
+
+    # Use domain-appropriate scraper
     domain = urlparse(true_url).hostname
     if domain in ['www.indeed.ca', 'www.indeed.com']:
         scraper_cls = PSindeedCa

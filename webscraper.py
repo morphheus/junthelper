@@ -22,8 +22,7 @@ logger.addHandler(handler)
 
 
 class SpiderIndeedCa(scrapy.Spider):
-    """Web search aggregator for Indeed.ca"""
-
+    """Job search aggregator for Indeed.ca"""
     name = 'indeed.ca'
     main_url_prefix = 'http://www.indeed.ca'
     search_url_prefix = '/jobs?'
@@ -33,9 +32,10 @@ class SpiderIndeedCa(scrapy.Spider):
 
     def __init__(self, match_all, match_any='', location='Montréal%2C+QC', views_per_page=20 ,max_age=15):
         """
-        match_all:  search for all these words in a single page
-        match_any:  search for any of these words in a single pasge
-        max_age:    integer, maximum age in days of the job posting. Values accepted: 1, 3, 7, 15"""
+        match_all:      search for all these words in a single page
+        location:       string containing the desired city in which the shearch should be done
+        viwes_per_page: total number of job postings per result page
+        max_age:        integer, maximum age in days of the job posting. Values accepted: 1, 3, 7, 15"""
         query = self.main_url_prefix + self.search_url_prefix + self.get_request[0] + match_all.replace(' ', '+')
         query += self.get_request[1] + match_any.replace(' ', '+')
         query += ''.join(self.get_request[2:10])
@@ -50,8 +50,9 @@ class SpiderIndeedCa(scrapy.Spider):
         self.jentries = []
         dispatcher.connect(self.quit, scrapy.signals.spider_closed)
         logger.log(21, 'Scraping ' + self.name)
+
     def parse(self, response):
-        """Parses the responses"""
+        """Parses all the job postings present in a result page page. Proceeds until there are no more pages or the age limit is reached"""
         # Grab all the job posting urls
         for sel in response.xpath('//h2[@class="jobtitle"]'):
             posting_url, job_location = self.get_selection_info(sel)
@@ -69,17 +70,20 @@ class SpiderIndeedCa(scrapy.Spider):
                 yield scrapy.Request(url)
         except IndexError:
             pass
+
     def get_selection_info(self, sel):
         """Posting url for indeed.ca. Outputs the job post url and the job location"""
         posting_url = self.main_url_prefix + sel.xpath('a/@href').extract()[0]
         job_location = sel.xpath('..//span[@itemprop="addressLocality"]/text()').extract()[0]
         return posting_url, job_location
+    
     def get_pagination_info(self, sel, response):
         """Pagination info for indeed.ca. Outputs the rightmost pagination url and its text"""
         rightmost_a = response.xpath('//div[@class="pagination"]/a')[-1]
         a_text = rightmost_a.xpath('span//text()').extract()[0]
         url = response.urljoin(rightmost_a.xpath('@href').extract()[0])
         return url, a_text
+    
     def quit(self):
         """Executed at the end of the crawl. Add all non-dupplicates to db"""
         # Add all Jentr to db
@@ -111,11 +115,11 @@ class SpiderCareerjetCa(SpiderIndeedCa):
     search_url_prefix = '/wsearch/jobs?'
     get_request = ['s=',  '&l=', '&sort=date']
 
-    def __init__(self, match_all, match_any='', location='Montreal%2C+QC', max_age=3):
+    def __init__(self, match_all, location='Montreal%2C+QC', max_age=3):
         """
         match_all:  search for all these words in a single page
-        match_any:  search for any of these words in a single pasge
-        max_page:   integer, maximum time (in days) the job posting was posted
+        location:   string containing the desired city in which the shearch should be done
+        max_aage:   integer, maximum time (in days) the job posting was posted
         """
         query = self.main_url_prefix + self.search_url_prefix + self.get_request[0] + match_all.replace(' ', '+')
         query += self.get_request[1] + location
@@ -127,8 +131,9 @@ class SpiderCareerjetCa(SpiderIndeedCa):
         self.search_page_index = 0
         dispatcher.connect(self.quit, scrapy.signals.spider_closed)
         logger.log(21, 'Scraping ' + self.name)
+
     def parse(self, response):
-        """Parses the responses"""
+        """Parses all the job postings present in a result page page. Proceeds until there are no more pages or the age limit is reached"""
         # Grab all the job posting urls
         for sel in response.xpath('//div[@class="job"]'):
             # Find if job too old
