@@ -65,8 +65,11 @@ class PageScraper:
         self.def_process_tree()
     
     def def_process_tree(self):
-        """Blindly grabs all normal text in the body of the html source"""
-        bodytext = list(self.tree.body.itertext())
+        """Blindly grabs all normal text in the body of the html source. It never fails, but is likely to grab unwanted text, especially if no html body can be found"""
+        try:
+            bodytext = list(self.tree.body.itertext())
+        except IndexError:
+            bodytext = list(self.tree.itertext())
         self.bodystring = '\n'.join(bodytext)
 
     def get_scrape_date(self):

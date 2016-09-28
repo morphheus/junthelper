@@ -3,11 +3,66 @@
 
 import lib
 
-#lib.exec_crawl('machine learning python', max_age=15)
-#lib.score_db()
+lib.exec_crawl('machine learning', max_age=7)
+lib.score_db()
 
-jentries = lib.get_sensible_jentries(22)
+#jentries = lib.get_sensible_jentries(15)
 #lib.open_in_browser(jentries, True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

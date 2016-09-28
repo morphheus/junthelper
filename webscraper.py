@@ -4,6 +4,7 @@
 import scrapy
 import logging
 import sys
+import traceback
 from scrapy.utils.log import configure_logging
 from scrapy.crawler import CrawlerProcess
 from scrapy.settings import Settings
@@ -60,7 +61,7 @@ class SpiderIndeedCa(scrapy.Spider):
                 self.jentries.append(scrape_job_posting(posting_url, loc=job_location))
             except Exception:
                 logger.error("Unexpected error with website:" + posting_url)
-                logger.error(sys.exc_info()[0])
+                traceback.print_exc()
         # Goto next page up to the end of the pagination div
         try:
             url, url_text = self.get_pagination_info(sel, response)
@@ -135,6 +136,7 @@ class SpiderCareerjetCa(SpiderIndeedCa):
     def parse(self, response):
         """Parses all the job postings present in a result page page. Proceeds until there are no more pages or the age limit is reached"""
         # Grab all the job posting urls
+        reached_max_age = False
         for sel in response.xpath('//div[@class="job"]'):
             # Find if job too old
             full_date = sel.xpath('p//span[@class="date_compact"]/script/text()').extract()[0][19:-3]
@@ -147,7 +149,7 @@ class SpiderCareerjetCa(SpiderIndeedCa):
                 self.jentries.append(scrape_job_posting(posting_url, loc=job_location))
             except Exception:
                 logger.error("Unexpected error with website:" + posting_url)
-                logger.error(sys.exc_info()[0])
+                traceback.print_exc()
                 
 
         # Goto next page up to the end of the pagination div
