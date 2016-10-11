@@ -4,6 +4,7 @@
 import scrapy
 import logging
 import sys
+import traceback
 from scrapy.utils.log import configure_logging
 from scrapy.crawler import CrawlerProcess
 from scrapy.settings import Settings
@@ -13,12 +14,6 @@ from datetime import datetime
 import juntdb
 from pagescraper import scrape_job_posting
 
-logger = logging.getLogger() # New local logger
-handler = logging.StreamHandler()
-handler.setLevel(20)
-formatter = logging.Formatter('[%(asctime)s %(name)s][%(levelname)-8s] %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 
 class SpiderIndeedCa(scrapy.Spider):
@@ -49,7 +44,7 @@ class SpiderIndeedCa(scrapy.Spider):
         self.search_page_index = 0
         self.jentries = []
         dispatcher.connect(self.quit, scrapy.signals.spider_closed)
-        logger.log(21, 'Scraping ' + self.name)
+        logging.log(21, 'Scraping ' + self.name)
 
     def parse(self, response):
         """Parses all the job postings present in a result page page. Proceeds until there are no more pages or the age limit is reached"""
@@ -59,8 +54,8 @@ class SpiderIndeedCa(scrapy.Spider):
             try:
                 self.jentries.append(scrape_job_posting(posting_url, loc=job_location))
             except Exception:
-                logger.error("Unexpected error with website:" + posting_url)
-                logger.error(sys.exc_info()[0])
+                logging.error("Unexpected error with website:" + posting_url)
+                traceback.print_exc()
         # Goto next page up to the end of the pagination div
         try:
             url, url_text = self.get_pagination_info(sel, response)
@@ -93,7 +88,7 @@ class SpiderIndeedCa(scrapy.Spider):
         try:
             true_urls = list(list(zip(* juntdb.fetch_last_n(99999, collist=['url'], conn=conn)))[1])
         except IndexError:
-            logger.info('Detected empty database; assuming there are no pre-existing URLS')
+            logging.info('Detected empty database; assuming there are no pre-existing URLS')
             true_urls = []
 
         dupp_count = 0
@@ -130,11 +125,12 @@ class SpiderCareerjetCa(SpiderIndeedCa):
         self.max_age = max_age
         self.search_page_index = 0
         dispatcher.connect(self.quit, scrapy.signals.spider_closed)
-        logger.log(21, 'Scraping ' + self.name)
+        logging.log(21, 'Scraping ' + self.name)
 
     def parse(self, response):
         """Parses all the job postings present in a result page page. Proceeds until there are no more pages or the age limit is reached"""
         # Grab all the job posting urls
+        reached_max_age = False
         for sel in response.xpath('//div[@class="job"]'):
             # Find if job too old
             full_date = sel.xpath('p//span[@class="date_compact"]/script/text()').extract()[0][19:-3]
@@ -146,8 +142,8 @@ class SpiderCareerjetCa(SpiderIndeedCa):
             try:
                 self.jentries.append(scrape_job_posting(posting_url, loc=job_location))
             except Exception:
-                logger.error("Unexpected error with website:" + posting_url)
-                logger.error(sys.exc_info()[0])
+                logging.error("Unexpected error with website:" + posting_url)
+                traceback.print_exc()
                 
 
         # Goto next page up to the end of the pagination div
@@ -175,7 +171,7 @@ def crawl_many(input_list):
     """Simple wrapper to crawl the desired website"""
     crawler = CrawlerProcess({
        'USER_AGENT': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)',
-       'LOG_LEVEL':'WARNING'
+       'LOG_LEVEL':logging.INFO
     })
     for spidercls, args, kwargs in input_list:
         crawler.crawl(spidercls, *args, **kwargs)

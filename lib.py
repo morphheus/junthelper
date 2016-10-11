@@ -12,11 +12,11 @@ from pagescraper import Jentry
 
 
 
-def exec_crawl(query, max_age=15):
+def exec_crawl(query, max_age=15, location='Montreal%2C+QC'):
     """Executes the desired webcrawling"""
     input_list = [
-            (webs.SpiderIndeedCa, (query,), {'max_age':max_age}),
-            (webs.SpiderCareerjetCa, (query,), {'max_age':max_age})
+            (webs.SpiderIndeedCa, (query,), {'max_age':max_age, 'location':location}),
+            (webs.SpiderCareerjetCa, (query,), {'max_age':max_age, 'location':location})
             ]
     webs.crawl_many(input_list)
 
