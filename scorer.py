@@ -32,7 +32,7 @@ ENGLISH_VOCAB = set(w.lower() for w in words.words()).union(LINUX_WORDS)
 UNWANTED_SET = stopwords.words('english') + USELESS_TOKENS
 
 # File of regex entries
-SCOREFILE = "newscorefile.csv"
+SCOREFILE = "scorefile.csv"
 
 
 def score(text, final_score=0):
