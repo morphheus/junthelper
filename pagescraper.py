@@ -6,37 +6,25 @@ from html.parser import HTMLParser
 from urllib.parse import urlparse
 import collections
 import requests
-import copy
 import string
+import copy
 import re
 import logging
 import sys
 
-# Sklearn deprecation warnings won't shut up
+import juntdb as db
+import scorer
+
+    
+# nltk deprecation warnings won't shut up
 import imp
 import warnings
 def warn(*args, **kwargs):
     pass
 warnings.warn = warn
 from nltk import pos_tag, word_tokenize
-from nltk.stem.snowball import SnowballStemmer
 from nltk.tokenize import RegexpTokenizer
-from nltk.corpus import stopwords, words
 imp.reload(warnings)
-
-import juntdb as db
-import scorer
-
-TECHNICAL_TOKENS = ['python', 'scala', 'css', 'hadoop', 'java', 'b', 'sc', 'ph', 'd', 'r', 'objectoriented', 'zsh', 'msc', 'phd', 'meng', 'eng', 'html', 'javascript', 'jquery', 'api', 'php', 'unix', 'linuxunix', 'sql', 'mysql', 'sqlite', 'kaggle']
-
-
-TECHNICAL_TOKENS += [str(x) for x in range(100)] # Such that years of experience get included
-TECHNICAL_TOKENS = set(TECHNICAL_TOKENS)
-
-# Mostly HTML remnants
-USELESS_TOKENS = ['bold', 'color', 'margin', 'left', 'background', 'dash', 'true', 'fals', 'transpar', 'visibl', 'hidden', 'border', 'none', 'pad', 'solid', 'height', 'posit', 'display', 'member', 'width', 'follow', 'inwrap', 'label', 'function', 'absol', 'right', 'close', 'relat', 'outlin', 'job', 'ga', 'reach', 'el', 'search', 'subhead', 'center', 'return', 'locat', 'find', 'mmiddle', 'underlin'
-]
-    
 
 #-------------------
 class PageScraper:
@@ -139,25 +127,20 @@ class Jentry:
         """Processes the job posting string to recover the relevant information in it"""
         # Remove html tags
         text = strip_html_tags(self.bodystring)
-        
-        # Remove punctuation
+
+        # Change commas for space
+        regex = re.compile(',')
+        text = regex.sub('', text)
+
+        # Remove all other punctuation
         regex = re.compile('[%s]' % re.escape(string.punctuation))
         text = regex.sub('', text)
 
         # only accept words that beegin with an alphabet or a number. outputs lowercase tokens
         tokenizer = RegexpTokenizer('[A-Za-z1-9]\w+')
         tokens = word_tokenize(text.lower())
-
-        # Remove non english words
-        linux_words = set(line.strip() for line in open('linuxwords')).union(TECHNICAL_TOKENS)
-        english_vocab = set(w.lower() for w in words.words()).union(linux_words)
-        english_tokens = [token for token in tokens if token in english_vocab]
         
-        # Remove non-stop words and HTML remnants. Also clear different version of the same word (e.g. water vs watered)
-        stemmer = SnowballStemmer("english")
-        stemmed_tokens = [stemmer.stem(token) for token in english_tokens]
-        unwanted_set = stopwords.words('english') + USELESS_TOKENS
-        self.processed_tokens = " ".join([token for token in stemmed_tokens if token not in unwanted_set])
+        self.processed_tokens = scorer.stem_and_discard(tokens)
 
     def compute_score(self):
         """Scores the job entry as defined in scorefile.csv"""

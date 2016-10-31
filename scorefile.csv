@@ -1,20 +1,21 @@
-# regex statements, score
-# All words between | will be enclised with a ()
-# | is the or operator. 
+# Usage:
+# statement, score
+#
+# | can be used in the statement as the "or" operator. 
 
 python, 7
-data analysi|data scien|analysi data|analyz data|busi analyst|data analyst|data engin, 10
+data analysis|data scientist|data science|analyse data|analyze data|busisness analyst|data analyst|data engineer, 10
 linux|linuxunix|unixlinux|unix, 5
 latex, 1
-statist, 4
-mathemat, 4
+statistics, 4
+mathematics, 4
 panda, 0
-machin learn, 5 
+machine learning, 5 
 objectori|object orient, 2
 bash|zsh shell|sh, 3
 big data, 2
-comput engin, 1
-engin, 2
+computer engineering, 1
+engineer, 2
 colleg|recent|new graduat, 6 
 graduat, 2
 french, 2
@@ -29,7 +30,7 @@ kaggl, 4
 
 data entry, -5
 window, -1
-web applic|web servic|web architectur, -3
+web applic|web servic|web architectur, -1
 html, -1
 rubi, 0
 css, -1
@@ -45,7 +46,7 @@ hive, -1
 php, -1
 rest api, -2
 senior, -2
-internship, -15
+internship, -10
 spanish, -4
 german, -4
 dutch, -4
