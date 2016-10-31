@@ -5,8 +5,9 @@ import scrapy
 import logging
 import sys
 import traceback
+from twisted.internet import reactor
 from scrapy.utils.log import configure_logging
-from scrapy.crawler import CrawlerProcess
+from scrapy.crawler import CrawlerRunner, CrawlerProcess
 from scrapy.settings import Settings
 from pydispatch import dispatcher
 from datetime import datetime
@@ -175,7 +176,9 @@ def crawl_many(input_list):
     })
     for spidercls, args, kwargs in input_list:
         crawler.crawl(spidercls, *args, **kwargs)
-    crawler.start() # the script will block here until the crawling is finished
+    crawler.start()
+
+
 
 def date_age(datestr):
     """Input: date string

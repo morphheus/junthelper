@@ -12,13 +12,20 @@ from pagescraper import Jentry
 
 
 
-def exec_crawl(query, max_age=15, location='Montreal%2C+QC'):
-    """Executes the desired webcrawling"""
-    input_list = [
-            (webs.SpiderIndeedCa, (query,), {'max_age':max_age, 'location':location}),
-            (webs.SpiderCareerjetCa, (query,), {'max_age':max_age, 'location':location})
-            ]
+def exec_crawl(input_query, max_age, location):
+    if type(input_query) != type(list()):
+        querylist = [input_query]
+    else:
+        querylist = input_query
+
+    input_list = []
+    for query in querylist: 
+        input_list += [
+                (webs.SpiderIndeedCa, (query,), {'max_age':max_age, 'location':location}),
+                (webs.SpiderCareerjetCa, (query,), {'max_age':max_age, 'location':location})
+                ]
     webs.crawl_many(input_list)
+
 
 def fetch_scored_jentries(min_score, filter_viewed=True, filter_dead=True, conn=False):
     """Fetches the high scoring entries
