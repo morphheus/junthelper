@@ -2,7 +2,6 @@
 """Various routines to interface with junthelper"""
 
 import juntdb
-import viewer
 import webscraper as webs
 import webbrowser
 import logging
@@ -13,6 +12,12 @@ from pagescraper import Jentry
 
 
 def exec_crawl(input_query, max_age, location):
+    """Crawls the job aggregation websites job postings that matches the input parameters
+    input_query:  string or list of strings to search in crawled website
+    max_age:      maximum age (in days) of the job postings to save to disk
+    location:     string of the city or other geographical location to search for
+    """
+
     if type(input_query) != type(list()):
         querylist = [input_query]
     else:
@@ -26,13 +31,13 @@ def exec_crawl(input_query, max_age, location):
                 ]
     webs.crawl_many(input_list)
 
-
 def fetch_scored_jentries(min_score, filter_viewed=True, filter_dead=True, conn=False):
     """Fetches the high scoring entries
     min_score:   minimum score to fetch
     is_unviewed: only fetch unviewed entries. If false, disregards the "viewed" field in juntdb
     is_alive:    only fetch non-dead entries. If false, disregards the "dead" field in juntdb
-    """
+
+    returns: list of sqlite rows matching the input parameters"""
     close_conn = False
     if conn == False: 
         conn = juntdb.connect()
@@ -64,7 +69,10 @@ def sort_by_attribute(lst, attribute):
         return lst
 
 def score_db(conn=False):
-    """Processes all unscored entries in db"""
+    """Scores all unscored entries in db
+    conn: sqlite connection object to use. If False, a new connection is made"""
+    # TODO: this is a really inefficient way to score
+    # it typecasts the sqlite output to a Jentry, then scores that, instead of scoring the sqlite row directly
     close_conn = False
     if conn == False: 
         conn = juntdb.connect()
@@ -87,11 +95,20 @@ def score_db(conn=False):
         conn.close()
 
 def row2jentry(data):
-    """Converts the output of the juntdb into Jentry objects"""
+    """Converts the output of sqlite into Jentry objects
+    data:  iterable of juntdb row outputs
+    
+    returns: list of Jentry object built from the input"""
     return [Jentry(dict(zip(['date'] + juntdb.DEF_COL_NAMES, x))) for x in data]
 
 def get_sensible_jentries(min_score, sorting='score', disp=True):
-    """Output to terminal the sensible entries that the user should apply to, according to min_score"""
+    """Output to terminal a list of Jentry objects
+    min_score:  minumim score of Jentry to display
+    sorting:    sort the output by the specified attribute
+    disp:       if true, prints the Jentry objects to terminal
+    
+    Returns a list of Jentry objects"""
+
     jentries = fetch_scored_jentries(min_score)
     sorted_jentries = sort_by_attribute(jentries, sorting)
     sorted_jentries.reverse()
@@ -111,7 +128,9 @@ def get_sensible_jentries(min_score, sorting='score', disp=True):
     return sorted_jentries
 
 def open_in_browser(jentries, mark_as_viewed=True):
-    """Opens the jentries in browser"""
+    """Opens the jentries in browser
+    jentries:       iterable of Jentry objects
+    mark_as_viewed: if true, marks the Jentry as viewed in the db file"""
     conn = juntdb.connect() 
     for jentry in jentries:
         webbrowser.open(jentry.url)
@@ -119,8 +138,4 @@ def open_in_browser(jentries, mark_as_viewed=True):
             jentry.viewed = True
             jentry.write_db()
     conn.close()
-
-
-if __name__ == '__main__':
-    print_sensible_jentries(0)
 

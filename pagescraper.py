@@ -32,20 +32,23 @@ class PageScraper:
     scraped = False
 
     def __init__(self, url, tree):
+        """Initializes the pagescraper object
+        url:  srtring of the url to scrape
+        tree: xml tree of the url"""
         if type(url) != type(str()):
             raise Exception('Url should be a string')
         self.url = url
         self.tree = tree
 
     def build_bodystring(self):
-        """Builds a single string out of the bodytext."""
-        # process_tree should ideally be redefined by subclasses. If it fails, revert to default
+        """Builds a single string out of the, according to self.process_tree()"""
+        # process_tree should ideally be redefined by subclasses. If the subclass definiton fails, revert to default.
         try:
             self.process_tree()
         except Exception:
             if self.__class__.__name__ == 'PageScraper':
                 raise
-            logging.error('Unexpected error in ' + self.__class__.__name__ + ' for ' + self.url)
+            logging.error('Unexpected error in ' + self.__class__.__name__ + ' for ' + self.url + '. Reverting to default process_tree method')
             self.def_process_tree()
 
     def process_tree(self):
@@ -65,7 +68,7 @@ class PageScraper:
         self.date_scrape = db.build_timestamp_id()
 
     def scrape(self):
-        """Build a string of the job posting"""
+        """Wrapper function, scraping all information off the job posting"""
         self.get_scrape_date()
         self.build_bodystring()
         self.scraped = True
@@ -102,7 +105,9 @@ class MLStripper(HTMLParser):
 class Jentry:
     """Job entry object"""
     def __init__(self, obj, loc=None):
-        """Jentry initializes itself from the input object"""
+        """Jentry initializes itself from the input object
+        obj:  PageScraper or Dict object to instantiates Jentry from
+        loc:  location of the job posting. Default: None"""
         if isinstance(obj, PageScraper):
             self.viewed = False
             self.dead = False
@@ -148,7 +153,8 @@ class Jentry:
         self.score, self.score_hits = scorer.score(self.processed_tokens)
 
     def write_db(self, conn=False):
-        """Stores the Jentry in the database. Creates a new db entry if necessary"""
+        """Stores the Jentry in the database. Creates a new db entry if necessary
+        conn: db connection to use. If False, a new sqlite connection is created"""
         existing_date = db.fetch_matching({'date':[self.date]})
         new_data = False
         if not existing_date:
@@ -156,13 +162,20 @@ class Jentry:
         db.add(dict(self), new_data=new_data, conn=conn)
 
 def strip_html_tags(html):
-    """Strips the html tags from the input"""
+    """Strips the html tags from the input
+    html: string of a webpage
+
+    returns: input string without the html tags"""
     s = MLStripper()
     s.feed(html)
     return s.get_data()
 
 def scrape_job_posting(url, **kwargs):
-    """Scrapes a Jentry from the job posting url"""
+    """Scrapes a Jentry from the job posting url. It first assigns the appropriate page scraper object, then builds a Jentry objet out of it.
+    url:    string of the url of the job posting to scrape
+    kwargs: kwargs to pass to the Jentry constructor
+    
+    returns: Jentry built from the input url"""
     r = requests.get(url, allow_redirects=True)
     true_url = r.url
     tree = html.fromstring(r.content)
@@ -183,7 +196,7 @@ def scrape_job_posting(url, **kwargs):
 
 
 if __name__ == '__main__':
-
+    """Testing stuff"""
     url = [
     'http://www.indeed.ca/cmp/Mate1-Inc/jobs/Devop-Engineer-a156a3304e6193bc?sjdu=vQIlM60yK_PwYat7ToXhk-E4ENgV3fnJw6x45fMqWb1lojM6yJ0NlafcC4cBp_yEgc5kHZrkOD2NvIrrHdP2HgNJCpsGTgvMW68enfhuWXU',
     'https://www.smartrecruiters.com/Ludia/95985523-intermediate-data-analyst?idpartenaire=136'
