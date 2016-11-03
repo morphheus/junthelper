@@ -38,9 +38,9 @@ SCOREFILE = "scorefile.csv"
 def score(text, final_score=0):
     """Scores the input text by checking the occurence of words in module.SCOREFILE
     text:  input string to score
-    score: initial score to use
+    score: initial for the score. Default is 0
     
-    outout: score of the text"""
+    returns: score of the input text"""
     hit_list = []
     for regex, regex_string, score in REGEX_LIST:
         matchlist = regex.findall(text)
@@ -51,7 +51,11 @@ def score(text, final_score=0):
     return final_score, hit_list
 
 def stem_and_discard(input_tokens, delim_char=' '):
-    """Discards non-english words and stems the remainder"""
+    """Discards non-english words and stems the remainder
+    input_tokens: tokens to process
+    delim_char:   string to put between the final tokens. Default is ' '
+    
+    returns: string containg the non-discarded roots of the input tokens"""
     stemmer = SnowballStemmer("english")
     output_str = ''
     for token in input_tokens:
@@ -63,7 +67,11 @@ def stem_and_discard(input_tokens, delim_char=' '):
     return output_str
 
 def preprocess_scorefile(filename, disp=False):
-    """Preprocesses the scoretext into regex entries"""
+    """Preprocesses the scoretext into regex entries, one for each row in the scorefile
+    filename: string ote filename
+    disp:     If true, displays the tokenized version of the scorefile
+    
+    returns: list of compiled regex parsers"""
     with open(SCOREFILE) as f:
         r = csv.reader(f)
         raw_read = [tuple(row) for row in r if row]
@@ -86,7 +94,6 @@ def preprocess_scorefile(filename, disp=False):
         entry_list.append((re.compile(regex_string), x[0], float(x[1])))
 
     return entry_list
-
 
 
 

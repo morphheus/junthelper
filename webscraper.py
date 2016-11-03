@@ -112,7 +112,7 @@ class SpiderIndeedCa(scrapy.Spider):
             logging.log(21, str(dupp_count) + ' dupplicates')
         conn.close()
 
-class SpiderCareerjetCa(scrapy.spider):
+class SpiderCareerjetCa(SpiderIndeedCa):
     """Spider for careerjet.ca"""
     main_url_prefix = 'http://www.careerjet.ca'
     search_url_prefix = '/wsearch/jobs?'
